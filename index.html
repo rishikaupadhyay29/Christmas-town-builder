@@ -1,0 +1,863 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christmas Town Builder - 3D ULTIMATE EDITION</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 15px;
+            padding: 0 10px;
+        }
+
+        .header h1 {
+            font-size: clamp(1.5em, 5vw, 2.5em);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #fff, #87ceeb, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .header p {
+            font-size: clamp(0.8em, 3vw, 1.1em);
+            opacity: 0.9;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            justify-content: center;
+        }
+
+        .tool-btn {
+            background: white;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: clamp(1.2em, 4vw, 1.5em);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            touch-action: manipulation;
+        }
+
+        .tool-btn:hover, .tool-btn:active {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .tool-btn.active {
+            border-color: #ff6b6b;
+            background: linear-gradient(135deg, #fff5f5, #ffe0e0);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: clamp(0.8em, 2.5vw, 1em);
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            touch-action: manipulation;
+            white-space: nowrap;
+        }
+
+        .action-btn:hover, .action-btn:active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .action-btn.download {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .action-btn.special {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: clamp(300px, 60vh, 600px);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.3),
+                inset 0 0 100px rgba(255,255,255,0.1);
+            cursor: grab;
+            transition: background 1s ease;
+            transform-style: preserve-3d;
+            touch-action: none;
+        }
+
+        .canvas-container:active {
+            cursor: grabbing;
+        }
+
+        .canvas-container.day {
+            background: 
+                radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.4), transparent 50%),
+                linear-gradient(180deg, #87ceeb 0%, #e0f7ff 40%, #ffffff 70%, #f0f8ff 100%);
+        }
+
+        .canvas-container.night {
+            background: 
+                radial-gradient(ellipse at 30% 20%, rgba(255, 255, 150, 0.2), transparent 40%),
+                linear-gradient(180deg, #0a1628 0%, #1a2744 40%, #2c3e5a 70%, #3d5a7f 100%);
+        }
+
+        #threeCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ef 100%);
+            padding: 10px 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .size-control label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .size-control input {
+            width: 120px;
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-panel h3 {
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotateZ(0deg); }
+            50% { transform: translateY(-10px) rotateZ(2deg); }
+        }
+
+        .header h1 {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .tutorial-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 650px;
+            color: white;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            text-align: center;
+            animation: slideUp 0.5s ease;
+            transform-style: preserve-3d;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px) rotateX(-10deg); opacity: 0; }
+            to { transform: translateY(0) rotateX(0deg); opacity: 1; }
+        }
+
+        .tutorial-box h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .tutorial-steps {
+            text-align: left;
+            margin: 30px 0;
+            font-size: 1.2em;
+            line-height: 2;
+        }
+
+        .tutorial-step {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .tutorial-step:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateX(5px);
+        }
+
+        .tutorial-step span {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(245, 87, 108, 0.5);
+        }
+
+        .help-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+
+        .help-btn:hover {
+            transform: scale(1.1) rotate(10deg);
+        }
+    </style>
+</head>
+<body>
+    <button class="help-btn" onclick="alert('🎮 Controls:\n\n🖱️ Drag canvas to rotate\n🖱️ Click to place items\n📏 Use size slider\n🌙 Toggle Day/Night\n🎵 Play music\n📥 Download your town!')" title="Help">
+        ❓
+    </button>
+
+    <div class="info-panel">
+        <h3>🎮 3D Controls</h3>
+        <div>🖱️ Drag to rotate view</div>
+        <div>🖱️ Click to place items</div>
+        <div>📏 Use size slider</div>
+    </div>
+
+    <div class="header">
+        <h1>🎄 3D Christmas Town Builder 🎅</h1>
+        <p>Build your magical town in stunning 3D with music & animations!</p>
+    </div>
+
+    <div class="container">
+        <div class="toolbar">
+            <button class="tool-btn" data-tool="tree" title="Christmas Tree">🎄</button>
+            <button class="tool-btn" data-tool="snowman" title="Snowman">⛄</button>
+            <button class="tool-btn" data-tool="house" title="House">🏠</button>
+            <button class="tool-btn" data-tool="gift" title="Gift">🎁</button>
+            <button class="tool-btn" data-tool="cabin" title="Cabin">🪵</button>
+            <button class="tool-btn" data-tool="bell" title="Bell">🔔</button>
+            <button class="tool-btn" data-tool="star" title="Star">⭐</button>
+            <button class="tool-btn" data-tool="santa" title="Santa">🎅</button>
+            <button class="tool-btn" data-tool="snowflake" title="Snowflake">❄️</button>
+            <button class="tool-btn" data-tool="candy" title="Candy Cane">🍬</button>
+            <button class="tool-btn" data-tool="reindeer" title="Reindeer">🦌</button>
+            <button class="tool-btn" data-tool="lights" title="Lights">💡</button>
+        </div>
+
+        <div class="canvas-container day" id="canvasContainer">
+            <canvas id="threeCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
+        </div>
+
+        <div class="size-control">
+            <label>Size:</label>
+            <input type="range" id="sizeSlider" min="30" max="150" value="60">
+            <span id="sizeValue">60px</span>
+        </div>
+
+        <div class="controls">
+            <button class="action-btn" id="undoBtn">↶ Undo</button>
+            <button class="action-btn" id="redoBtn">↷ Redo</button>
+            <button class="action-btn" id="clearBtn">🗑️ Clear All</button>
+            <button class="action-btn special" id="dayNightBtn">🌙 Night Mode</button>
+            <button class="action-btn special" id="musicBtn">🎵 Play Music</button>
+            <button class="action-btn special" id="resetViewBtn">🔄 Reset View</button>
+            <button class="action-btn download" id="downloadBtn">📥 Download Town</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let currentTool = null;
+        let objects = [];
+        let history = [];
+        let redoStack = [];
+        let currentSize = 60;
+        let isDayMode = true;
+        let musicPlaying = false;
+
+        // Three.js setup
+        const container = document.getElementById('canvasContainer');
+        const canvas = document.getElementById('threeCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        
+        camera.position.set(0, 15, 25);
+        camera.lookAt(0, 0, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        // Ground plane
+        const groundGeometry = new THREE.PlaneGeometry(40, 40);
+        const groundMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Audio setup
+        const bgMusic = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTUIGWi77OefTQ==');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.3;
+
+        // Resize handler
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            overlayCanvas.width = container.clientWidth;
+            overlayCanvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', onWindowResize);
+        onWindowResize();
+
+        // Mouse controls for rotation
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraRotation = { x: 0, y: 0 };
+
+        // Touch support for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            if (!currentTool && e.touches.length === 1) {
+                isDragging = true;
+                previousMousePosition = { 
+                    x: e.touches[0].clientX, 
+                    y: e.touches[0].clientY 
+                };
+                e.preventDefault();
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const deltaX = e.touches[0].clientX - previousMousePosition.x;
+                const deltaY = e.touches[0].clientY - previousMousePosition.y;
+                
+                cameraRotation.y += deltaX * 0.01;
+                cameraRotation.x += deltaY * 0.01;
+                cameraRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraRotation.x));
+                
+                updateCameraPosition();
+                
+                previousMousePosition = { 
+                    x: e.touches[0].clientX, 
+                    y: e.touches[0].clientY 
+                };
+                e.preventDefault();
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && !currentTool) {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+                
+                cameraRotation.y += deltaX * 0.01;
+                cameraRotation.x += deltaY * 0.01;
+                cameraRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraRotation.x));
+                
+                updateCameraPosition();
+                
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+
+        function updateCameraPosition() {
+            const radius = 25;
+            camera.position.x = radius * Math.sin(cameraRotation.y) * Math.cos(cameraRotation.x);
+            camera.position.y = 15 + radius * Math.sin(cameraRotation.x);
+            camera.position.z = radius * Math.cos(cameraRotation.y) * Math.cos(cameraRotation.x);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // Tool selection
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTool = btn.dataset.tool;
+                playSound('click');
+            });
+        });
+
+        // Size control
+        const sizeSlider = document.getElementById('sizeSlider');
+        const sizeValue = document.getElementById('sizeValue');
+        sizeSlider.addEventListener('input', (e) => {
+            currentSize = parseInt(e.target.value);
+            sizeValue.textContent = currentSize + 'px';
+        });
+
+        // Place object on click/tap
+        canvas.addEventListener('click', handlePlace);
+        canvas.addEventListener('touchend', (e) => {
+            if (!isDragging && currentTool && e.changedTouches.length === 1) {
+                const touch = e.changedTouches[0];
+                const rect = canvas.getBoundingClientRect();
+                const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                const y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+                
+                const intersects = raycaster.intersectObject(ground);
+                
+                if (intersects.length > 0) {
+                    const point = intersects[0].point;
+                    addObject(currentTool, point.x, point.z, currentSize);
+                    playSound(currentTool);
+                }
+                e.preventDefault();
+            }
+        });
+
+        function handlePlace(e) {
+            if (!currentTool || isDragging) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+            
+            const intersects = raycaster.intersectObject(ground);
+            
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                addObject(currentTool, point.x, point.z, currentSize);
+                playSound(currentTool);
+            }
+        }
+
+        function getEmoji(type) {
+            const emojis = {
+                tree: '🎄', snowman: '⛄', house: '🏠', gift: '🎁',
+                cabin: '🪵', bell: '🔔', star: '⭐', santa: '🎅',
+                snowflake: '❄️', candy: '🍬', reindeer: '🦌', lights: '💡'
+            };
+            return emojis[type] || '❓';
+        }
+
+        function getSizeMultiplier(type) {
+            const multipliers = {
+                tree: 1.2, house: 1.3, cabin: 1.3, snowman: 0.6,
+                santa: 0.5, reindeer: 0.5, gift: 0.4, bell: 0.3,
+                star: 0.4, candy: 0.25, snowflake: 0.3, lights: 0.3
+            };
+            return multipliers[type] || 1;
+        }
+
+        function addObject(type, x, z, size) {
+            const sizeMultiplier = getSizeMultiplier(type);
+            const actualSize = (size / 60) * sizeMultiplier * 2;
+
+            // Create 3D sprite
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 128;
+            canvas.height = 128;
+            
+            ctx.font = '100px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(getEmoji(type), 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(actualSize, actualSize, 1);
+            sprite.position.set(x, actualSize / 2, z);
+            sprite.castShadow = true;
+            
+            scene.add(sprite);
+
+            // Add shadow blob
+            const shadowGeometry = new THREE.CircleGeometry(actualSize * 0.4, 32);
+            const shadowMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x000000, 
+                transparent: true, 
+                opacity: 0.3
+            });
+            const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+            shadow.rotation.x = -Math.PI / 2;
+            shadow.position.set(x, 0.01, z);
+            scene.add(shadow);
+
+            objects.push({ type, sprite, shadow, x, z, size });
+            history.push(JSON.parse(JSON.stringify(objects.length)));
+            redoStack = [];
+        }
+
+        // Sound effects
+        function playSound(type) {
+            const freq = {
+                'tree': 523.25, 'santa': 392.00, 'snowman': 440.00,
+                'gift': 587.33, 'star': 783.99, 'click': 200
+            };
+            
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = freq[type] || 440;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Day/Night toggle
+        document.getElementById('dayNightBtn').addEventListener('click', () => {
+            isDayMode = !isDayMode;
+            const btn = document.getElementById('dayNightBtn');
+            const container = document.getElementById('canvasContainer');
+            
+            if (isDayMode) {
+                container.classList.remove('night');
+                container.classList.add('day');
+                btn.textContent = '🌙 Night Mode';
+                ambientLight.intensity = 0.6;
+                directionalLight.intensity = 0.8;
+                groundMaterial.color.setHex(0xffffff);
+            } else {
+                container.classList.remove('day');
+                container.classList.add('night');
+                btn.textContent = '☀️ Day Mode';
+                ambientLight.intensity = 0.2;
+                directionalLight.intensity = 0.3;
+                groundMaterial.color.setHex(0xccddff);
+            }
+            playSound('click');
+        });
+
+        // Music toggle
+        document.getElementById('musicBtn').addEventListener('click', () => {
+            const btn = document.getElementById('musicBtn');
+            
+            if (musicPlaying) {
+                bgMusic.pause();
+                btn.textContent = '🎵 Play Music';
+                musicPlaying = false;
+            } else {
+                bgMusic.play();
+                btn.textContent = '🔇 Stop Music';
+                musicPlaying = true;
+            }
+        });
+
+        // Reset view
+        document.getElementById('resetViewBtn').addEventListener('click', () => {
+            cameraRotation = { x: 0, y: 0 };
+            updateCameraPosition();
+            playSound('click');
+        });
+
+        // Clear
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            objects.forEach(obj => {
+                scene.remove(obj.sprite);
+                scene.remove(obj.shadow);
+            });
+            objects = [];
+            history = [];
+            redoStack = [];
+            playSound('click');
+        });
+
+        // Undo/Redo
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            if (objects.length > 0) {
+                const obj = objects.pop();
+                scene.remove(obj.sprite);
+                scene.remove(obj.shadow);
+                redoStack.push(obj);
+            }
+            playSound('click');
+        });
+
+        document.getElementById('redoBtn').addEventListener('click', () => {
+            if (redoStack.length > 0) {
+                const obj = redoStack.pop();
+                scene.add(obj.sprite);
+                scene.add(obj.shadow);
+                objects.push(obj);
+            }
+            playSound('click');
+        });
+
+        // Snowfall overlay
+        const snowParticles = [];
+        class SnowParticle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * overlayCanvas.width;
+                this.y = Math.random() * -overlayCanvas.height;
+                this.z = Math.random();
+                this.size = (Math.random() * 3 + 1) * (0.5 + this.z * 0.5);
+                this.speed = (Math.random() * 1 + 0.5) * (0.5 + this.z * 0.5);
+                this.drift = (Math.random() * 0.5 - 0.25);
+            }
+            update() {
+                this.y += this.speed;
+                this.x += this.drift;
+                if (this.y > overlayCanvas.height) this.reset();
+            }
+            draw() {
+                const alpha = 0.4 + (this.z * 0.4);
+                overlayCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                overlayCtx.beginPath();
+                overlayCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                overlayCtx.fill();
+            }
+        }
+
+        for (let i = 0; i < 100; i++) {
+            snowParticles.push(new SnowParticle());
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Render 3D scene
+            renderer.render(scene, camera);
+            
+            // Render snow overlay
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            snowParticles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            // Draw stars in night mode
+            if (!isDayMode) {
+                for (let i = 0; i < 30; i++) {
+                    const x = (i * 123.456) % overlayCanvas.width;
+                    const y = (i * 456.789) % (overlayCanvas.height * 0.3);
+                    const twinkle = Math.sin(Date.now() * 0.001 + i) * 0.5 + 0.5;
+                    
+                    overlayCtx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+                    overlayCtx.beginPath();
+                    overlayCtx.arc(x, y, 2, 0, Math.PI * 2);
+                    overlayCtx.fill();
+                }
+            }
+        }
+        animate();
+
+        // Download
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('downloadBtn');
+            btn.textContent = '📸 Capturing...';
+            btn.disabled = true;
+
+            try {
+                const canvas = await html2canvas(document.querySelector('.container'), {
+                    backgroundColor: null,
+                    scale: 2
+                });
+
+                const link = document.createElement('a');
+                link.download = 'my-3d-christmas-town.png';
+                link.href = canvas.toDataURL();
+                link.click();
+
+                btn.textContent = '✅ Downloaded!';
+                playSound('star');
+                setTimeout(() => {
+                    btn.textContent = '📥 Download Town';
+                    btn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                console.error('Download failed:', err);
+                btn.textContent = '❌ Failed';
+                setTimeout(() => {
+                    btn.textContent = '📥 Download Town';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
